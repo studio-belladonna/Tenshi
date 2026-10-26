@@ -27,7 +27,6 @@
 #include "Tenshi/Input/InputEvent.h"
 #include "Tenshi/Input/Key.h"
 #include "Tenshi/Platform/Platform.h"
-#include "Tenshi/Scene/Actor.h"
 #include "Tenshi/Scene/Background.h"
 #include "Tenshi/Scene/Camera.h"
 #include "Tenshi/Scene/CharacterModel.h"
