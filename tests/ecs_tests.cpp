@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "Tenshi/Entity/World.h"
-#include "Tenshi/Scene/Components.h"
+#include "Tenshi/Components/Components.h"
 
 namespace {
 struct Position {
