@@ -124,7 +124,6 @@ bool Game::init() {
 
     lastTime = platform->getTime();
     deltaTime = 0.0;
-    targetFrameTime = 1.0 / 60.0;
 
     running = true;
     return true;
@@ -171,7 +170,7 @@ void Game::step() {
 
 	frameTime = std::min(elapsed, maxFrameTime);
 	deltaTime = frameTime;
-    
+
     input.beginFrame();
 
     platform->pollEvents(

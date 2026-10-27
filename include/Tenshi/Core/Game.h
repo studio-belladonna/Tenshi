@@ -147,7 +147,6 @@ private:
     FileSystem filesys;
     AudioSystem audiosys;
 
-    double targetFrameTime = 1.0 / 60.0;
     double lastTime = 0.0;
     double deltaTime = 0.0;
     double frameTime = 0.0;
