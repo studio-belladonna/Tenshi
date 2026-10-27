@@ -23,6 +23,10 @@ void UIManager::update(double deltaTime) {
     }
 }
 
+void UIManager::fixedUpdate(double deltaTime) {
+    // no need to do anything
+}
+
 void UIManager::draw() {
     for (auto& child : children) {
         child->draw(game->getRenderer());

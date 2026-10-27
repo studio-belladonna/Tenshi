@@ -12,6 +12,7 @@ public:
     virtual bool init() { return true; }
     virtual void event(const Event& event) {}
     virtual void update(double deltaTime) {}
+    virtual void fixedUpdate(double dt) {}
     virtual void draw() {}
 
 protected:

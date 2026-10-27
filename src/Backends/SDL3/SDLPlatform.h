@@ -22,7 +22,7 @@ public:
     void delay(uint32_t milliseconds) override;
     void pollEvents(const EventCallback& callback) override;
 
-    const char* getBasePath() const;
+    const char* getBasePath() const override;
 private:
     bool translateEvent(const SDL_Event& source, Event& output) const;
 

@@ -20,6 +20,7 @@ public:
 
     void event(const Event& event);
     void update(double deltaTime);
+    void fixedUpdate(double deltaTime);
     void draw();
 
     void pushChild(std::unique_ptr<GUI::Element> child);

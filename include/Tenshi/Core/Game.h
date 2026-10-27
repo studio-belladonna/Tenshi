@@ -150,6 +150,12 @@ private:
     double targetFrameTime = 1.0 / 60.0;
     double lastTime = 0.0;
     double deltaTime = 0.0;
+    double frameTime = 0.0;
+    double physicsAccumulator = 0.0;
+
+    static constexpr double physicsTimeStep = 1.0 / 60.0;
+    static constexpr double maxFrameTime = 0.05;
+    static constexpr int maxPhysicsSteps = 3;
 
     bool running = false;
     bool redrawRequested = false;

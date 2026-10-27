@@ -11,6 +11,10 @@
 #include <cstdint>
 #include <filesystem>
 
+#undef min
+#undef max
+#include <algorithm>
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -157,23 +161,17 @@ void Game::addSubroutine(std::unique_ptr<Subroutine> subroutine) {
 }
 
 void Game::step() {
-    const double currentTime = platform->getTime();
+	const double currentTime = platform->getTime();
+	double elapsed = currentTime - lastTime;
+	lastTime = currentTime;
 
-    deltaTime = currentTime - lastTime;
+	if (elapsed < 0.0) {
+		elapsed = 0.0;
+	}
 
-    lastTime = currentTime;
-
-#ifdef __EMSCRIPTEN__
-    // emscripten frame limiting
-    if (deltaTime < targetFrameTime) {
-        platform->delay(
-            static_cast<uint32_t>(
-                (targetFrameTime - deltaTime) * 1000.0
-            )
-        );
-    }
-#endif
-
+	frameTime = std::min(elapsed, maxFrameTime);
+	deltaTime = frameTime;
+    
     input.beginFrame();
 
     platform->pollEvents(
@@ -182,9 +180,30 @@ void Game::step() {
         }
     );
 
+    physicsAccumulator += frameTime;
+	int physicsSteps = 0;
+
+    while (physicsAccumulator >= physicsTimeStep
+        && physicsSteps < maxPhysicsSteps
+    ) {
+        // signal all physics
+		for (auto& subroutine : subroutines) {
+			subroutine->fixedUpdate(physicsTimeStep);
+		}
+
+		physicsAccumulator -= physicsTimeStep;
+		physicsSteps++;
+	}
+
+	if (physicsSteps == maxPhysicsSteps
+    &&  physicsAccumulator >= physicsTimeStep
+    ) {
+		physicsAccumulator = 0.0;
+	}
+
     // signal all updates
     for (auto& subroutine : subroutines) {
-        subroutine->update(deltaTime);
+        subroutine->update(frameTime);
     }
 
     draw();
