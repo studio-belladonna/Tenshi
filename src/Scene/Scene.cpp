@@ -66,8 +66,8 @@ void Scene::Draw() {
 
 			renderer.sprite->setFlip(
 				renderer.facingDirection < 0
-					? SDL_FLIP_HORIZONTAL
-					: SDL_FLIP_NONE
+					? TextureFlip::Horizontal
+					: TextureFlip::None
 			);
 
 			renderer.sprite->draw(

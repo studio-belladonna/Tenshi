@@ -2,10 +2,15 @@
 
 #include <SDL3/SDL.h>
 #include <cstdint>
+#include <memory>
 
 #include "Tenshi/Core/Log.h"
 
 namespace Tenshi {
+
+std::unique_ptr<Platform> CreatePlatform() {
+    return std::make_unique<SDLPlatform>();
+}
 
 SDLPlatform::~SDLPlatform() {
     shutdown();
@@ -16,7 +21,6 @@ bool SDLPlatform::initialize() {
 
     if (!SDL_Init(
         SDL_INIT_VIDEO 
-    |   SDL_INIT_AUDIO
     |   SDL_INIT_EVENTS
     )) {
         return false;
@@ -323,6 +327,15 @@ const char* SDLPlatform::getBasePath() const {
     }
 
     return basePath;
+}
+
+void SDLPlatform::showError(const char* title, const char* message) {
+    SDL_ShowSimpleMessageBox(
+        SDL_MESSAGEBOX_ERROR,
+        title,
+        message,
+        nullptr
+    );
 }
 
 } // namespace Tenshi

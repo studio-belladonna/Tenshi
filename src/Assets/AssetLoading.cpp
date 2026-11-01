@@ -34,7 +34,7 @@ std::vector<std::string> LoadYamlDir(
 } // namespace 
 
 bool MakeAllAssetsYaml(
-    SDL_Renderer* renderer,
+    Renderer& renderer,
     AssetManager& assets,
     FileSystem& files,
     AudioSystem& audio
@@ -64,7 +64,7 @@ bool MakeAllAssetsYaml(
 }
 
 bool MakeSpriteYaml(
-    SDL_Renderer* renderer,
+    Renderer& renderer,
     AssetManager& assets,
     FileSystem& files,
     const std::string& path
@@ -86,7 +86,7 @@ bool MakeSpriteYaml(
     std::string definition_path
     =   yamlRoot["sprite-definition"]["file"].get_value<std::string>();
 
-    MakeSprite(renderer, assets, files, 
+    MakeSprite(renderer, assets, files,
         definition_path, 
         definition_id, 
         definition_width, 

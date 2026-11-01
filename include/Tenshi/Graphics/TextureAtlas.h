@@ -1,15 +1,16 @@
 #pragma once
 
-#include <SDL3/SDL.h>
+#include "Tenshi/Graphics/Renderer.h"
+
 #include <unordered_map>
 #include <string>
 
 namespace Tenshi {
 
 struct AtlasRegion {
-    SDL_Texture* texture;
+    GraphicsTexture* texture;
 
-    SDL_FRect region;
+    Rect<float> region;
 
     int width;
     int height;
@@ -18,7 +19,7 @@ struct AtlasRegion {
 class TextureAtlas {
 public:
 
-    SDL_Texture* texture;
+    GraphicsTexture* texture;
 
     std::unordered_map<std::string, AtlasRegion> regions;
 

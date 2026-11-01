@@ -2,7 +2,6 @@
 
 #include "Tenshi/Files/Yaml.h"
 
-#include "Platform/Window.h"
 #include "Core/GameHelper.h"
 #include "Core/CrashHandler.h"
 
@@ -31,8 +30,12 @@ void Game::emscriptenStep() {
 }
 #endif
 
-Game::Game(std::unique_ptr<Platform> platform)
-    : platform(std::move(platform)) 
+Game::Game(
+    std::unique_ptr<Platform> platform,
+    std::unique_ptr<Renderer> renderer
+)
+    : platform(std::move(platform))
+    , renderer(std::move(renderer))
 {
 }
 
@@ -40,15 +43,8 @@ Game::~Game() {
     subroutines.clear();
     audiosys.Shutdown();
 
-    if (renderer) {
-        SDL_DestroyRenderer(renderer);
-        renderer = nullptr;
-    }
-
-    if (window) {
-        SDL_DestroyWindow(window);
-        window = nullptr;
-    }
+    if (renderer)
+        renderer->shutdown();
 
     if (platform) {
         platform->shutdown();
@@ -58,6 +54,7 @@ Game::~Game() {
 bool Game::init() {
     if (!platform) {
         FatalError(
+            nullptr,
             "Error!",
             "No platform backend was provided"
         );
@@ -67,6 +64,7 @@ bool Game::init() {
 
     if (!platform->initialize()) {
         FatalError(
+            platform.get(),
             "Error!",
             "Platform initialization failed"
         );
@@ -98,24 +96,31 @@ bool Game::init() {
     YamlDocument document = yaml.Load("game.yml");
     INTERNAL::buildConfig(document, config);
 
-    window = MakeWindow(config);
-    if (!window) return false;
+    if (!renderer) {
+        LogError(LogCategory::Renderer, "No graphics backend was provided");
+        return false;
+    }
 
-    renderer = SDL_CreateRenderer(window, NULL);
-    if (!renderer) return false;
-
-    SDL_SetRenderVSync(renderer, 1);
+    RendererConfig rendererConfig{
+        config.title,
+        config.windowWidth,
+        config.windowHeight,
+        config.windowScale,
+        config.windowResizable
+    };
+    if (!renderer->initialize(rendererConfig))
+        return false;
 
     resetRenderer(config);
 
     if (!audiosys.Init()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Audio engine failed to initialize");
+        LogError(LogCategory::Application, "Audio engine failed to initialize");
         return false;
     }
 
 #ifndef __EMSCRIPTEN__
     if (!audiosys.Start()) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Audio device failed to start");
+        LogError(LogCategory::Application, "Audio device failed to start");
         return false;
     }
 #endif
@@ -265,14 +270,7 @@ void Game::processEvent(const Event& event) {
 
 void Game::draw() {
     if (config.clearFrame) {
-        SDL_SetRenderDrawColor(renderer, 
-            config.clearColour.r,
-            config.clearColour.g,
-            config.clearColour.b,
-            config.clearColour.a
-        );
-
-        SDL_RenderClear(renderer);
+        renderer->clear(config.clearColour);
     }
 
     // signal all drawing
@@ -280,7 +278,7 @@ void Game::draw() {
         subroutine->draw();
     }
 
-    SDL_RenderPresent(renderer);
+    renderer->present();
 }
 
 void Game::pulse() {
@@ -300,7 +298,7 @@ Input& Game::getInput() {
 }
 
 void Game::resetRenderer(GameConfig conf) {
-    SDL_SetWindowSize(window,
+    renderer->setWindowSize(
         conf.windowWidth  * conf.windowScale,
         conf.windowHeight * conf.windowScale
     );
@@ -309,7 +307,7 @@ void Game::resetRenderer(GameConfig conf) {
 }
 
 void Game::rendererSetFixedSize(int w, int h) {
-    SDL_SetRenderLogicalPresentation(renderer, w, h, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+    renderer->setLogicalSize(w, h);
 }
 
 FileSystem& Game::getFileSystem() {
@@ -320,12 +318,8 @@ AudioSystem& Game::getAudioSystem() {
     return audiosys;
 }
 
-SDL_Window* Game::getWindow() {
-    return window;
-}
-
-SDL_Renderer* Game::getRenderer() {
-    return renderer;
+Renderer& Game::getRenderer() {
+    return *renderer;
 }
 
 } // namespace Tenshi

@@ -4,7 +4,6 @@
 #include "Tenshi/GUI/Element.h"
 #include "Tenshi/Event/Event.h"
 
-#include <SDL3/SDL.h>
 #include <vector>
 #include <memory>
 

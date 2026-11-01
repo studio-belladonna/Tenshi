@@ -73,12 +73,7 @@ TextRenderer::TextRenderer() {
     colour = { 255, 255, 255, 255 };
 }
 
-TextRenderer::~TextRenderer() {
-    if (texture)
-        SDL_DestroyTexture(texture);
-
-    SDL_DestroySurface(text_surface);
-}
+TextRenderer::~TextRenderer() = default;
 
 void TextRenderer::Draw() {
     if (!renderer)
@@ -88,24 +83,37 @@ void TextRenderer::Draw() {
         RebuildTexture();
 
     if (texture) {
-        SDL_RenderTexture(renderer, texture, nullptr, &rect);
+        const Rect<float> source{
+            0.0f,
+            0.0f,
+            static_cast<float>(texture->getWidth()),
+            static_cast<float>(texture->getHeight())
+        };
+        renderer->drawTexture(
+            *texture,
+            source,
+            rect,
+            0.0f,
+            { 0.0f, 0.0f },
+            TextureFlip::None
+        );
     }
 }
 
 void TextRenderer::RebuildTexture() {
-    if (texture) {
-        SDL_DestroyTexture(texture);
-        texture = nullptr;
-    }
-
-    SDL_DestroySurface(text_surface);
-    text_surface = nullptr;
+    texture.reset();
 
     if (text.empty()) {
         rect.w = 0.0f;
         rect.h = 0.0f;
         textureOffsetX = 0.0f;
 
+        dirty = false;
+        return;
+    }
+
+    if (!renderer) {
+        LogError(LogCategory::Renderer, "TextRenderer has no Renderer");
         dirty = false;
         return;
     }
@@ -183,28 +191,15 @@ void TextRenderer::RebuildTexture() {
     const int width = std::max(1, maxX - minX);
     const int height = std::max(1, maxBottom);
 
-    text_surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
-    if (!text_surface) {
-        LogError(
-            LogCategory::Renderer,
-            "Could not create text surface: ",
-            SDL_GetError()
-        );
-
-        return;
-    }
-
-    SDL_FillSurfaceRect(text_surface, nullptr, SDL_MapSurfaceRGBA(text_surface, 0, 0, 0, 0));
+    std::vector<uint8_t> pixels(
+        static_cast<size_t>(width) * static_cast<size_t>(height) * 4
+    );
 
     for (const auto& glyph : glyphs) {
         for (int gy = 0; gy < glyph.bitmap.height; ++gy) {
             const int surfaceY = glyph.baseline + glyph.bitmap.yOffset + gy;
             if (surfaceY < 0 || surfaceY >= height) continue;
             
-            auto* row = reinterpret_cast<uint32_t*>(
-                static_cast<uint8_t*>(text_surface->pixels) + surfaceY * text_surface->pitch
-            );
-
             for (int gx = 0; gx < glyph.bitmap.width; ++gx) {
                 const int surfaceX = glyph.x + glyph.bitmap.xOffset + gx - minX;
                 if (surfaceX < 0 || surfaceX >= width) continue;
@@ -218,35 +213,27 @@ void TextRenderer::RebuildTexture() {
                 
                 const uint8_t alpha = static_cast<uint8_t>((glyphAlpha * colour.a + 127) / 255);
 
-                row[surfaceX] = SDL_MapSurfaceRGBA(text_surface, colour.r, colour.g, colour.b, alpha);
+                const size_t offset
+                =   (static_cast<size_t>(surfaceY) * width + surfaceX) * 4;
+                pixels[offset] = static_cast<uint8_t>(colour.r);
+                pixels[offset + 1] = static_cast<uint8_t>(colour.g);
+                pixels[offset + 2] = static_cast<uint8_t>(colour.b);
+                pixels[offset + 3] = alpha;
             }
         }
     }
 
-    texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+    texture = renderer->createTexture(pixels.data(), width, height);
     if (!texture) {
-        LogError(
-            LogCategory::Renderer,
-            "Could not create text texture: ",
-            SDL_GetError()
-        );
-        SDL_DestroySurface(text_surface);
-        text_surface = nullptr;
-
+        LogError(LogCategory::Renderer, "Could not create text texture");
         return;
     }
-
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
-    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
     textureOffsetX = static_cast<float>(minX);
     rect.x = std::trunc(x) + textureOffsetX;
     rect.y = std::trunc(y);
     rect.w = static_cast<float>(width);
     rect.h = static_cast<float>(height);
-
-    SDL_DestroySurface(text_surface);
-    text_surface = nullptr;
 
     dirty = false;
 }
@@ -266,7 +253,7 @@ void TextRenderer::SetPosition(float newX, float newY) {
     rect.y = y;
 }
 
-void TextRenderer::SetColour(SDL_Color col) {
+void TextRenderer::SetColour(rgba col) {
     colour = col;
     dirty = true;
 }
@@ -285,26 +272,19 @@ void TextRenderer::SetFont(Font* f) {
     }
 }
 
-void TextRenderer::SetRenderer(SDL_Renderer* r) {
-    if (renderer == r) 
+void TextRenderer::SetRenderer(Renderer& newRenderer) {
+    if (renderer == &newRenderer)
         return;
 
-    renderer = r;
+    renderer = &newRenderer;
     dirty = true;
-
-    if (texture) {
-        SDL_DestroyTexture(texture);
-        texture = nullptr;
-    }
+    texture.reset();
 }
 
 void TextRenderer::ClearText() {
     text.clear();
 
-    if (texture) {
-        SDL_DestroyTexture(texture);
-        texture = nullptr;
-    }
+    texture.reset();
 
     rect.w = 0.0f;
     rect.h = 0.0f;
@@ -317,11 +297,11 @@ std::string TextRenderer::GetText() {
     return text;
 }
 
-SDL_Color TextRenderer::GetColour() {
+rgba TextRenderer::GetColour() {
     return colour;
 }
 
-std::unique_ptr<TextRenderer> MakeTextRenderer(SDL_Renderer* renderer, Font* font) {
+std::unique_ptr<TextRenderer> MakeTextRenderer(Renderer& renderer, Font* font) {
     auto new_TextRenderer = std::make_unique<TextRenderer>();
 
     new_TextRenderer->SetRenderer(renderer);

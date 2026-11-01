@@ -17,7 +17,7 @@ namespace Tenshi {
 
 // Create a new sprite and put it into an AssetManager
 bool MakeSprite(
-    SDL_Renderer* renderer,
+    Renderer& renderer,
     AssetManager& assets,
     FileSystem& files,
     const std::string& path,
@@ -35,10 +35,7 @@ bool MakeSprite(
         return false;
     }
 
-    SDL_IOStream* io = SDL_IOFromConstMem(data.data(), data.size());
-    if (!io) return false; 
-    
-    SDL_Texture* texture = LoadTextureIO_STB(renderer, io, true);
+    auto texture = LoadTextureSTB(renderer, data.data(), data.size());
     if (!texture) {
         LogDebug(
             LogCategory::Resource,
@@ -49,7 +46,7 @@ bool MakeSprite(
         return false;
     }
 
-    auto sprite = std::make_unique<Sprite>(texture, width, height);
+    auto sprite = std::make_unique<Sprite>(std::move(texture), width, height);
     assets.sprite.Add(key, std::move(sprite));
 
     return true;

@@ -2,13 +2,12 @@
 
 #include "Tenshi/Utility/Types.h"
 #include "Tenshi/Event/Event.h"
+#include "Tenshi/Graphics/Renderer.h"
 
 #include <vector>
 #include <memory>
 #include <string>
 #include <algorithm>
-
-#include <SDL3/SDL.h>
 
 namespace Tenshi {
 namespace GUI {
@@ -42,7 +41,7 @@ public:
         }
     }
     
-    virtual void draw(SDL_Renderer* renderer) {
+    virtual void draw(Renderer& renderer) {
         if (!active) return;
 
         // draw self...

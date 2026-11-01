@@ -68,8 +68,9 @@ float BackgroundLayer::GetSpeedY() {
 
 
 // background
-Background::Background(SDL_Renderer* r) {
-	renderer = r;
+Background::Background(Renderer& renderer)
+	: renderer(renderer)
+{
 	ParallaxEnabled = true;
 }
 
@@ -91,14 +92,18 @@ void Background::Step(const Camera& cam) {
 
 void Background::Draw(const Camera& cam) {
 	int screenW, screenH;
-	SDL_GetRenderOutputSize(renderer, &screenW, &screenH);
+	renderer.getOutputSize(screenW, screenH);
 
 	for (const auto& layer : layers) {
 		Sprite* spr = layer->GetSprite();
-		SDL_Texture* tex = spr->GetTexture();
+		GraphicsTexture* tex = spr->GetTexture();
+		if (!tex)
+			continue;
 
-		float texW, texH;
-		SDL_GetTextureSize(tex, &texW, &texH);
+		const float texW = static_cast<float>(tex->getWidth());
+		const float texH = static_cast<float>(tex->getHeight());
+		if (texW <= 0.0f || texH <= 0.0f)
+			continue;
 
 		// parallax
 		float depth = std::max(1.0f, (float)layer->GetDepth());
@@ -114,19 +119,13 @@ void Background::Draw(const Camera& cam) {
 		if (offsetX < 0) offsetX += texW;
 		if (offsetY < 0) offsetY += texH;
 
-		SDL_FRect dst;
-		dst.x = -offsetX;
-		dst.y = -offsetY;
-		dst.w = (float)screenW + texW; // extend so no gaps
-		dst.h = (float)screenH + texH;
-
-		SDL_RenderTextureTiled(
-			renderer,
-			tex,
-			NULL,
-			1.0f,
-			&dst
-		);
+		Rect<float> destination{
+			-offsetX,
+			-offsetY,
+			static_cast<float>(screenW) + texW,
+			static_cast<float>(screenH) + texH
+		};
+		renderer.drawTextureTiled(*tex, destination);
 	}
 }
 

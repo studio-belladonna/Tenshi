@@ -36,14 +36,13 @@ const char* GetString(const std::vector<uint8_t>& data, uint32_t offset, uint32_
     return reinterpret_cast<const char*>(data.data() + offset);
 }
 
-SDL_FRect MakeRect(int x, int y, int w, int h) {
-    SDL_FRect rect;
-    rect.x = static_cast<float>(x);
-    rect.y = static_cast<float>(y);
-    rect.w = static_cast<float>(w);
-    rect.h = static_cast<float>(h);
-
-    return rect;
+Rect<float> MakeRect(int x, int y, int w, int h) {
+    return {
+        static_cast<float>(x),
+        static_cast<float>(y),
+        static_cast<float>(w),
+        static_cast<float>(h)
+    };
 }
 
 } // namespace
@@ -134,7 +133,7 @@ int MapLayer::GetHeight() const {
     return height;
 }
 
-Tilemap::Tilemap(SDL_Renderer* renderer,int width, int height)
+Tilemap::Tilemap(Renderer& renderer, int width, int height)
     : width(width)
     , height(height)
 {
@@ -406,14 +405,14 @@ void Tilemap::Draw(const Camera& camera) {
                 const TilesetTile* tile = tileset->GetTile(tileId);
                 if (!tile) continue;
 
-                SDL_FRect source = MakeRect(
+                Rect<float> source = MakeRect(
                     tile->x * tileWidth,
                     tile->y * tileHeight,
                     tileWidth,
                     tileHeight
                 );
 
-                SDL_FRect destination = MakeRect(
+                Rect<float> destination = MakeRect(
                     x * tileWidth - camX,
                     y * tileHeight - camY,
                     tileWidth,
@@ -426,7 +425,7 @@ void Tilemap::Draw(const Camera& camera) {
                     destination,
                     0.0f,
                     { 0.0f, 0.0f },
-                    SDL_FLIP_NONE
+                    TextureFlip::None
                 );
             }
         }

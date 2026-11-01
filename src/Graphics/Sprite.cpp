@@ -3,6 +3,7 @@
 #include "Tenshi/Scene/Camera.h"
 
 #include <stdexcept>
+#include <utility>
 
 namespace Tenshi {
 
@@ -71,8 +72,8 @@ void SpriteBlock::addFrame(const SpriteFrame& f) {
     frames.push_back(f);
 }
 
-Sprite::Sprite(SDL_Texture* tex, int iW, int iH)
-    : texture(tex),
+Sprite::Sprite(std::unique_ptr<GraphicsTexture> tex, int iW, int iH)
+    : texture(std::move(tex)),
       imageWidth(iW),
       imageHeight(iH)
 {
@@ -80,21 +81,16 @@ Sprite::Sprite(SDL_Texture* tex, int iW, int iH)
     dst = { 0.0f, 0.0f, static_cast<float>(iW), static_cast<float>(iH)};
 
     if (!texture) {
-        throw std::runtime_error("Sprite created with null SDL_Texture");
+        throw std::runtime_error("Sprite created with null texture");
     }
 
     if (imageWidth <= 0 || imageHeight <= 0) {
         throw std::runtime_error("Sprite created with invalid dimensions");
     }
 
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
 }
 
-Sprite::~Sprite() {
-    if (texture) {
-        SDL_DestroyTexture(texture);
-    }
-}
+Sprite::~Sprite() = default;
 
 SpriteBlock& Sprite::createBlock(const std::string& handle) {
     blocks.emplace_back(handle);
@@ -111,12 +107,7 @@ void Sprite::setImage(int index) {
 
     image = index;
 
-    float texWf, texHf;
-
-    if (!SDL_GetTextureSize(texture, &texWf, &texHf))
-        return;
-
-    int texW = static_cast<int>(texWf);
+    const int texW = texture->getWidth();
 
     int columns = texW / imageWidth;
     if (columns <= 0) return;
@@ -146,12 +137,12 @@ void Sprite::setRotation(float r) {
     rotation = r;
 }
 
-void Sprite::setFlip(SDL_FlipMode f) {
+void Sprite::setFlip(TextureFlip f) {
     flip = f;
 }
 
-SDL_Texture* Sprite::GetTexture() {
-    return texture;
+GraphicsTexture* Sprite::GetTexture() {
+    return texture.get();
 }
 
 void Sprite::step(double dt) {
@@ -184,20 +175,18 @@ void Sprite::setBlock(const std::string& handle) {
 }
 
 void Sprite::draw(SpriteBatch& batch, const Camera& cam, int x, int y) {
-    SDL_FRect dst;
-
     int camX = cam.getViewX();
     int camY = cam.getViewY();
 
-    dst.x = x - camX;
-    dst.y = y - camY;
+    dst.x = static_cast<float>(x - camX);
+    dst.y = static_cast<float>(y - camY);
     dst.w = imageWidth * scale;
     dst.h = imageHeight * scale;
 
-    SDL_FPoint origin = { originX * scale, originY * scale };
+    Vec<float, 2> origin{ originX * scale, originY * scale };
 
     batch.draw(
-        texture,
+        texture.get(),
         src,
         dst,
         rotation,

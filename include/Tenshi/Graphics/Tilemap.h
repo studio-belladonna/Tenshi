@@ -5,14 +5,13 @@
 #include <string>
 #include <vector>
 
-#include <SDL3/SDL.h>
-
 #include "Tenshi/Graphics/TileTypes.h"
 
 namespace Tenshi {
 
 class Camera;
 class FileSystem;
+class Renderer;
 class SpriteBatch;
 class Tileset;
 using TileFlags = uint8_t;
@@ -54,7 +53,7 @@ private:
 
 class Tilemap {
 public:
-    Tilemap(SDL_Renderer* renderer, int width, int height);
+    Tilemap(Renderer& renderer, int width, int height);
     ~Tilemap();
 
     bool Load(FileSystem& files, const std::string& path);

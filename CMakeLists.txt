@@ -139,6 +139,7 @@ target_sources(tenshi
         "${TENSHI_INCLUDE_DIR}/Tenshi/Files/Yaml.h"
         "${TENSHI_INCLUDE_DIR}/Tenshi/Graphics/Sprite.h"
         "${TENSHI_INCLUDE_DIR}/Tenshi/Graphics/SpriteBatch.h"
+        "${TENSHI_INCLUDE_DIR}/Tenshi/Graphics/Renderer.h"
         "${TENSHI_INCLUDE_DIR}/Tenshi/Graphics/Text.h"
         "${TENSHI_INCLUDE_DIR}/Tenshi/Graphics/TextureAtlas.h" 
         "${TENSHI_INCLUDE_DIR}/Tenshi/Graphics/Tilemap.h"
@@ -166,8 +167,6 @@ target_sources(tenshi
         "${TENSHI_SOURCE_DIR}/Audio/Audio.cpp"
         "${TENSHI_SOURCE_DIR}/Audio/Sound.cpp"
         "${TENSHI_SOURCE_DIR}/Audio/SoundInstance.cpp"
-        "${TENSHI_SOURCE_DIR}/Backends/SDL3/SDLPlatform.cpp"
-        "${TENSHI_SOURCE_DIR}/Backends/SDL3/SDLPlatform.h"
         "${TENSHI_SOURCE_DIR}/Character/Character.cpp"
         "${TENSHI_SOURCE_DIR}/Core/CrashHandler.h"
         "${TENSHI_SOURCE_DIR}/Core/Game.cpp"
@@ -190,9 +189,6 @@ target_sources(tenshi
         "${TENSHI_SOURCE_DIR}/GUI/Frame.cpp"
         "${TENSHI_SOURCE_DIR}/GUI/Manager.cpp"
         "${TENSHI_SOURCE_DIR}/Input/Input.cpp"
-        "${TENSHI_SOURCE_DIR}/Platform/Platform.cpp"
-        "${TENSHI_SOURCE_DIR}/Platform/Window.cpp"
-        "${TENSHI_SOURCE_DIR}/Platform/Window.h"
         "${TENSHI_SOURCE_DIR}/Scene/Background.cpp"
         "${TENSHI_SOURCE_DIR}/Scene/Camera.cpp"
         "${TENSHI_SOURCE_DIR}/Scene/Scene.cpp"
@@ -200,12 +196,29 @@ target_sources(tenshi
 
 target_link_libraries(tenshi
     PUBLIC
-        SDL3::SDL3
         miniaudio
         lz4
         fkyaml
         stb_image
         stb_truetype
+)
+
+add_library(tenshi_sdl3 STATIC
+    "${TENSHI_SOURCE_DIR}/Backends/SDL3/SDLGraphicsBackend.cpp"
+    "${TENSHI_SOURCE_DIR}/Backends/SDL3/SDLPlatform.cpp"
+    "${TENSHI_SOURCE_DIR}/Backends/SDL3/SDLPlatform.h"
+)
+add_library(tenshi::tenshi_sdl3 ALIAS tenshi_sdl3)
+
+target_link_libraries(tenshi_sdl3
+    PUBLIC
+        tenshi::tenshi
+    PRIVATE
+        SDL3::SDL3
+)
+target_include_directories(tenshi_sdl3
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 target_include_directories(tenshi
@@ -427,7 +440,7 @@ if(TENSHI_INSTALL)
     include(CMakePackageConfigHelpers)
 
     install(
-        TARGETS tenshi
+        TARGETS tenshi tenshi_sdl3
         EXPORT tenshiTargets
     )
 

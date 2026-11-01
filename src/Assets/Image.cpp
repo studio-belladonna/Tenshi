@@ -4,8 +4,7 @@
 
 #include <vector>
 #include <memory>
-#include <iostream>
-#include <SDL3/SDL.h>
+#include <limits>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -18,27 +17,14 @@ struct StbiDeleter {
     }
 };
 
-SDL_Texture* LoadTextureIO_STB(SDL_Renderer* renderer, SDL_IOStream* src, bool closeio) {
-    if (!src) {
+std::unique_ptr<GraphicsTexture> LoadTextureSTB(Renderer& renderer, const uint8_t* data, size_t size) {
+    if (!data || size == 0) {
         LogWarning(LogCategory::Resource, "Attempt to load null image data");
         return nullptr;
     }
 
-    struct IOCloser {
-        SDL_IOStream* stream;
-        bool should_close;
-        ~IOCloser() { if (should_close && stream) SDL_CloseIO(stream); }
-    } io_closer{src, closeio};
-
-    Sint64 total_size = SDL_GetIOSize(src);
-    if (total_size <= 0) {
-        return nullptr;
-    }
-
-    std::vector<uint8_t> buffer(static_cast<size_t>(total_size));
-    size_t bytes_read = SDL_ReadIO(src, buffer.data(), buffer.size());
-    if (bytes_read == 0) {
-        LogWarning(LogCategory::Resource, "Could not read image data: {}", SDL_GetError());
+    if (size > static_cast<size_t>(std::numeric_limits<int>::max())) {
+        LogWarning(LogCategory::Resource, "Image data is too large to decode");
         return nullptr;
     }
 
@@ -47,8 +33,8 @@ SDL_Texture* LoadTextureIO_STB(SDL_Renderer* renderer, SDL_IOStream* src, bool c
     int channels = 0;
     std::unique_ptr<unsigned char, StbiDeleter> pixels(
         stbi_load_from_memory(
-            buffer.data(), 
-            static_cast<int>(bytes_read), 
+            data,
+            static_cast<int>(size),
             &width, 
             &height, 
             &channels, 
@@ -61,18 +47,9 @@ SDL_Texture* LoadTextureIO_STB(SDL_Renderer* renderer, SDL_IOStream* src, bool c
         return nullptr;
     }
 
-    SDL_Surface* surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, pixels.get(), width * 4);
-    if (!surface) {
-        LogWarning(LogCategory::Resource, "Could not create surface: {}", SDL_GetError());
-        return nullptr;
-    }
-
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    
-    SDL_DestroySurface(surface);
-
+    auto texture = renderer.createTexture(pixels.get(), width, height);
     if (!texture) {
-        LogWarning(LogCategory::Resource, "Could not create texture: {}", SDL_GetError());
+        LogWarning(LogCategory::Resource, "Could not create texture for decoded image");
     }
 
     return texture;

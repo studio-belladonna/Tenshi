@@ -1,10 +1,13 @@
 #pragma once
 
-#include <SDL3/SDL.h>
+#include "Tenshi/Graphics/Renderer.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 
 namespace Tenshi {
 
-// SDL_Texture* LoadTexture_STB(SDL_Renderer* renderer, const char* filename);
-SDL_Texture* LoadTextureIO_STB(SDL_Renderer* renderer, SDL_IOStream* src, bool closeio);
+std::unique_ptr<GraphicsTexture> LoadTextureSTB(Renderer& renderer, const uint8_t* data, size_t size);
 
 } // namespace Tenshi

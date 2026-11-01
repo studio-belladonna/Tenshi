@@ -1,9 +1,12 @@
 #include "Tenshi/Graphics/SpriteBatch.h"
 
+#include <functional>
+
 namespace Tenshi {
 
-SpriteBatch::SpriteBatch(SDL_Renderer* r) {
-    renderer = r;
+SpriteBatch::SpriteBatch(Renderer& renderer)
+    : renderer(renderer)
+{
 }
 
 void SpriteBatch::begin() {
@@ -11,21 +14,22 @@ void SpriteBatch::begin() {
 }
 
 void SpriteBatch::draw(
-    SDL_Texture* texture,
-    const SDL_FRect& src,
-    const SDL_FRect& dst,
+    GraphicsTexture* texture,
+    const Rect<float>& src,
+    const Rect<float>& dst,
     float rotation,
-    SDL_FPoint origin,
-    SDL_FlipMode flip
+    Vec<float, 2> origin,
+    TextureFlip flip
 ) {
-    SpriteCommand cmd{};
-
-    cmd.texture = texture;
-    cmd.src = src;
-    cmd.dst = dst;
-    cmd.rotation = rotation;
-    cmd.origin = origin;
-    cmd.flip = flip;
+    SpriteCommand cmd{
+        texture,
+        src,
+        dst,
+        rotation,
+        origin,
+        flip,
+        0
+    };
 
     commands.push_back(cmd);
 }
@@ -36,19 +40,20 @@ void SpriteBatch::flush() {
             if (a.layer != b.layer)
                 return a.layer < b.layer;
 
-            return a.texture < b.texture;
+            return std::less<GraphicsTexture*>{}(a.texture, b.texture);
         });
 
     for (const SpriteCommand& cmd : commands) {
-        SDL_RenderTextureRotated(
-            renderer,
-            cmd.texture,
-            &cmd.src,
-            &cmd.dst,
-            cmd.rotation,
-            &cmd.origin,
-            cmd.flip
-        );
+        if (cmd.texture) {
+            renderer.drawTexture(
+                *cmd.texture,
+                cmd.src,
+                cmd.dst,
+                cmd.rotation,
+                cmd.origin,
+                cmd.flip
+            );
+        }
     }
 }
 

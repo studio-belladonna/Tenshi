@@ -1,6 +1,6 @@
 #pragma once
 
-#include <SDL3/SDL.h>
+#include "Tenshi/Graphics/Renderer.h"
 
 #include <string>
 #include <memory>
@@ -20,24 +20,23 @@ public:
 
 	void SetPosition(float x, float y);
 
-	void SetColour(SDL_Color col);
+	void SetColour(rgba col);
 	void SetAntialiasing(bool enabled);
 	void SetFont(Font* f);
-	void SetRenderer(SDL_Renderer* r);
+	void SetRenderer(Renderer& renderer);
 
 	void ClearText();
 
 	std::string GetText();
-	SDL_Color GetColour();
+	rgba GetColour();
 private:
-	SDL_Renderer* renderer = nullptr;
-	SDL_Texture* texture = nullptr;
-	SDL_Surface* text_surface = nullptr;
+	Renderer* renderer = nullptr;
+	std::unique_ptr<GraphicsTexture> texture;
 
 	Font* font = nullptr;
 	
-	SDL_Color colour;
-	SDL_FRect rect;
+	rgba colour;
+	Rect<float> rect;
 
 	std::string text = "";
 	
@@ -49,6 +48,6 @@ private:
 	bool dirty = true;
 };
 
-std::unique_ptr<TextRenderer> MakeTextRenderer(SDL_Renderer* renderer, Font* font);
+std::unique_ptr<TextRenderer> MakeTextRenderer(Renderer& renderer, Font* font);
 
 } // namespace Tenshi

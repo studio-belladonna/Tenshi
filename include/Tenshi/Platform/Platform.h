@@ -24,6 +24,7 @@ public:
     virtual void pollEvents(const EventCallback& callback) = 0;
 
     virtual const char* getBasePath() const = 0;
+    virtual void showError(const char* title, const char* message) = 0;
 };
 
 std::unique_ptr<Platform> CreatePlatform();

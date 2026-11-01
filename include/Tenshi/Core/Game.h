@@ -11,10 +11,9 @@
 #include <memory>
 #include <cstdint>
 
-#include <SDL3/SDL.h>
-
 #include "Tenshi/Input/Input.h"
 #include "Tenshi/Platform/Platform.h"
+#include "Tenshi/Graphics/Renderer.h"
 
 #include "Tenshi/Files/FileSystem.h"
 #include "Tenshi/Core/Subroutine.h"
@@ -40,7 +39,10 @@ struct GameConfig {
 
 class Game {
 public:
-    Game(std::unique_ptr<Platform> platform);
+    Game(
+        std::unique_ptr<Platform> platform,
+        std::unique_ptr<Renderer> renderer
+    );
     ~Game();
 
     Game(const Game&) = delete;
@@ -64,8 +66,7 @@ public:
     AudioSystem& getAudioSystem();
     GameConfig& getConfig();
     Input& getInput();
-    SDL_Window* getWindow();
-    SDL_Renderer* getRenderer();
+    Renderer& getRenderer();
 
     // Register a callback event
     template<typename Callable>
@@ -136,12 +137,10 @@ private:
 
 private:
     std::unique_ptr<Platform> platform;
+    std::unique_ptr<Renderer> renderer;
 
     Input input;
 
-    SDL_Window* window = nullptr;
-    SDL_Renderer* renderer = nullptr;
-    SDL_Surface* applicationSurface = nullptr;
     GameConfig config;
 
     FileSystem filesys;

@@ -8,11 +8,10 @@ Frame::Frame(std::string id, Rect<float> bounds)
 {
 }
 
-void Frame::draw(SDL_Renderer* renderer) {
+void Frame::draw(Renderer& renderer) {
     if (!active) return;
 
-    SDL_FRect sdlRect = static_cast<SDL_FRect>(bounds);
-    SDL_RenderFillRect(renderer, &sdlRect);
+    renderer.fillRect(bounds, { 0, 0, 0, 255 });
 
     Element::draw(renderer);
 }

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <SDL3/SDL.h>
 #include <vector>
 #include <string>
 #include <memory>
 
+#include "Tenshi/Graphics/Renderer.h"
 #include "Tenshi/Graphics/SpriteBatch.h"
 
 namespace Tenshi {
@@ -50,7 +50,7 @@ private:
 
 class Sprite {
 public:
-    Sprite(SDL_Texture* tex, int frameW, int frameH);
+    Sprite(std::unique_ptr<GraphicsTexture> tex, int frameW, int frameH);
     ~Sprite();
 
     void setImage(int index);
@@ -67,20 +67,20 @@ public:
     void setBlock(const std::string& handle);
     void setScale(float s);
     void setRotation(float r);
-    void setFlip(SDL_FlipMode f);
+    void setFlip(TextureFlip f);
 
-    SDL_Texture* GetTexture();
+    GraphicsTexture* GetTexture();
     int getWidth();
     int getHeight();
 
 private:
-    SDL_Texture* texture;
+    std::unique_ptr<GraphicsTexture> texture;
 
     std::vector<SpriteBlock> blocks;
     int currentBlock = -1;
 
-    SDL_FRect src;
-    SDL_FRect dst;
+    Rect<float> src;
+    Rect<float> dst;
 
     int imageWidth;
     int imageHeight;
@@ -93,7 +93,7 @@ private:
     float scale = 1.0f;
     float rotation = 0.0f;
 
-    SDL_FlipMode flip = SDL_FLIP_NONE;
+    TextureFlip flip = TextureFlip::None;
 };
 
 } // namespace Tenshi

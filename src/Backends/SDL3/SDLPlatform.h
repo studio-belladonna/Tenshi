@@ -23,6 +23,7 @@ public:
     void pollEvents(const EventCallback& callback) override;
 
     const char* getBasePath() const override;
+    void showError(const char* title, const char* message) override;
 private:
     bool translateEvent(const SDL_Event& source, Event& output) const;
 

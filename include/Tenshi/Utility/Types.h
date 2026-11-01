@@ -1,7 +1,5 @@
 #pragma once
 
-#include <SDL3/SDL_rect.h>
-
 #include <cstdint>
 #include <cstddef>
 
@@ -54,24 +52,6 @@ struct Rect {
         return w * h;
     }
 
-    // conversion for sdl
-    explicit operator SDL_FRect() const {
-        return SDL_FRect{
-            static_cast<float>(x),
-            static_cast<float>(y),
-            static_cast<float>(w),
-            static_cast<float>(h)
-        };
-    }
-
-    explicit operator SDL_Rect() const {
-        return SDL_Rect{
-            static_cast<int>(x),
-            static_cast<int>(y),
-            static_cast<int>(w),
-            static_cast<int>(h)
-        };
-    }
 };
 
 

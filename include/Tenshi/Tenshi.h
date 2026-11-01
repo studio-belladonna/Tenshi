@@ -18,6 +18,7 @@
 #include "Tenshi/Files/Yaml.h"
 #include "Tenshi/Graphics/Sprite.h"
 #include "Tenshi/Graphics/SpriteBatch.h"
+#include "Tenshi/Graphics/Renderer.h"
 #include "Tenshi/Graphics/Text.h"
 #include "Tenshi/Graphics/TextureAtlas.h"
 #include "Tenshi/Graphics/Tilemap.h"

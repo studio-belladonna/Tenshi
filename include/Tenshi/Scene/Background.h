@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Tenshi/Graphics/SpriteBatch.h"
+#include "Tenshi/Graphics/Renderer.h"
 #include "Tenshi/Graphics/Sprite.h"
 #include "Tenshi/Scene/Camera.h"
 
@@ -45,7 +45,7 @@ private:
 
 class Background {
 public:
-	Background(SDL_Renderer* r);
+	explicit Background(Renderer& renderer);
 	~Background();
 
 	void Step(const Camera& cam);
@@ -57,7 +57,7 @@ public:
 
 	bool ParallaxEnabled;
 private:
-	SDL_Renderer* renderer = nullptr;
+	Renderer& renderer;
 
 	std::vector<std::unique_ptr<BackgroundLayer>> layers;
 };
