@@ -345,6 +345,7 @@ bool Tilemap::Load(FileSystem& files, const std::string& path) {
         layers.emplace_back(std::move(layer));
     }
 
+    ++collisionRevision;
     return true;
 }
 
@@ -492,7 +493,15 @@ void Tilemap::SetCollision(int x, int y, uint8_t type) {
         return;
     }
 
-    collision[static_cast<size_t>(y) * width + x] = type;
+    uint8_t& current = collision[static_cast<size_t>(y) * width + x];
+    if (current != type) {
+        current = type;
+        ++collisionRevision;
+    }
+}
+
+uint64_t Tilemap::GetCollisionRevision() const {
+    return collisionRevision;
 }
 
 const MapTransition* Tilemap::GetEntry(uint32_t id) const {

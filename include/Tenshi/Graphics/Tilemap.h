@@ -77,6 +77,7 @@ public:
 
     uint8_t GetCollision(int x, int y) const;
     void SetCollision(int x, int y, uint8_t type);
+    uint64_t GetCollisionRevision() const;
 
     const MapTransition* GetEntry(uint32_t id) const;
     const MapTransition* GetExit(uint32_t id) const;
@@ -95,6 +96,7 @@ private:
     std::vector<MapLayer> layers;
 
     std::vector<uint8_t> collision;
+    uint64_t collisionRevision = 0;
 
     std::vector<MapTransition> entries;
     std::vector<MapTransition> exits;

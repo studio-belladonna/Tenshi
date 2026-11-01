@@ -3,6 +3,7 @@
 #include "Tenshi/Core/Game.h"
 
 #include <stdexcept>
+#include <algorithm>
 
 namespace Tenshi {
 
@@ -20,6 +21,7 @@ void Scene::init() {
 }
 
 void Scene::Step(double dt) {
+	updateTilemapColliders();
 	world.update(static_cast<float>(dt));
 
 	const auto targets = world.view<CameraTarget>().entities();
@@ -88,12 +90,74 @@ void Scene::setTileset(std::unique_ptr<Tileset> ts) {
 	tileset = std::move(ts);
 	if (tilemap)
 		tilemap->SetTileset(tileset.get());
+	collisionMap = nullptr;
 }
 
 void Scene::setTilemap(std::unique_ptr<Tilemap> map) {
 	tilemap = std::move(map);
 	if (tilemap)
 		tilemap->SetTileset(tileset.get());
+	collisionMap = nullptr;
+}
+
+void Scene::updateTilemapColliders() {
+	const Tilemap* map = tilemap.get();
+	const int tileWidth = tileset ? tileset->GetTileWidth() : 16;
+	const int tileHeight = tileset ? tileset->GetTileHeight() : 16;
+	const uint64_t revision = map ? map->GetCollisionRevision() : 0;
+
+	worldColliders = colliders;
+	if (map == collisionMap
+	&& 	revision == collisionRevision
+	&& 	tileWidth == collisionTileWidth
+	&& 	tileHeight == collisionTileHeight
+	) {
+		worldColliders.insert(
+			worldColliders.end(),
+			tilemapColliders.begin(),
+			tilemapColliders.end()
+		);
+		return;
+	}
+
+	tilemapColliders.clear();
+	collisionMap = map;
+	collisionRevision = revision;
+	collisionTileWidth = tileWidth;
+	collisionTileHeight = tileHeight;
+
+	if (!map || tileWidth <= 0 || tileHeight <= 0)
+		return;
+
+	for (int y = 0; y < map->GetHeight(); ++y) {
+		for (int x = 0; x < map->GetWidth(); ++x) {
+			const auto type = static_cast<TileColliderType>(
+				map->GetCollision(x, y)
+			);
+			if (type == TileColliderType::NONE)
+				continue;
+
+			double colliderY = static_cast<double>(y * tileHeight);
+			double colliderHeight = static_cast<double>(tileHeight);
+			if (type == TileColliderType::HALF) {
+				colliderHeight = std::max(1, tileHeight / 2);
+				colliderY += tileHeight - colliderHeight;
+			}
+
+			tilemapColliders.push_back({
+				static_cast<double>(x * tileWidth),
+				colliderY,
+				static_cast<double>(tileWidth),
+				colliderHeight
+			});
+		}
+	}
+
+	worldColliders.insert(
+		worldColliders.end(),
+		tilemapColliders.begin(),
+		tilemapColliders.end()
+	);
 }
 
 Entity Scene::createCharacter(Sprite* sprite, double x, double y) {
@@ -159,7 +223,7 @@ std::unique_ptr<Tilemap>& Scene::getTilemap() {
 }
 
 std::vector<Rect<double>>& Scene::getColliders() {
-	return worldColliders;
+	return colliders;
 }
 
 std::unique_ptr<Camera>& Scene::getCamera() {

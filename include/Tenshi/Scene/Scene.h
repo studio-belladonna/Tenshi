@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <memory>
+#include <cstdint>
 
 #include "Tenshi/Scene/Background.h"
 #include "Tenshi/Graphics/Tileset.h"
@@ -51,11 +52,19 @@ private:
 	std::unique_ptr<Tilemap> tilemap;
 	std::unique_ptr<Background> background;
 	std::vector<Rect<double>> worldColliders;
+	std::vector<Rect<double>> tilemapColliders;
+	std::vector<Rect<double>> colliders;
 	std::vector<std::unique_ptr<Character>> characters;
 	World world;
+	const Tilemap* collisionMap = nullptr;
+	uint64_t collisionRevision = 0;
+	int collisionTileWidth = 0;
+	int collisionTileHeight = 0;
 
 	// TODO: make this a vector when scenes support multiple viewports
 	std::unique_ptr<Camera> camera;
+
+	void updateTilemapColliders();
 };
 
 } // namespace Tenshi
