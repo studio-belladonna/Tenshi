@@ -8,18 +8,21 @@
 #include <limits>
 #include <cctype>
 #include <charconv>
+#include <span>
 
-#include <lz4.h>
+#include <liblha/lha.h>
+#include "Files/PakCrypto.h"
 
 namespace fs = std::filesystem;
 
-// lz4 file construction
 constexpr uint32_t PAK_MAGIC = 0x4B415054;
-constexpr uint32_t PAK_VERSION = 1;
+constexpr uint32_t PAK_VERSION = 2;
+constexpr uint32_t PAK_ENCRYPTED_VERSION = 3;
 
 enum class Compression : uint32_t {
     None = 0,
-    LZ4 = 1
+    LHA = 1,
+    Encrypted = 0x100
 };
 
 #pragma pack(push, 1)
@@ -50,12 +53,15 @@ struct FileData {
 
     std::vector<uint8_t> data;
     std::vector<uint8_t> compressed;
+    std::vector<uint8_t> encrypted;
 
     Compression compression;
 
     uint32_t checksum;
 
     uint64_t offset = 0;
+    Tenshi::detail::PakNonce nonce{};
+    Tenshi::detail::PakTag tag{};
 };
 
 uint32_t crc32(const uint8_t* data, size_t size) {
@@ -105,51 +111,60 @@ std::string makeVirtualPath(const fs::path& root, const fs::path& file) {
 bool compressFile(FileData& file) {
     if (file.data.empty()) {
         file.compression = Compression::None;
+    } else {
+        lha::Options options;
+        options.maxOutputSize = file.data.size();
+        lha::Result result = lha::compress(
+            lha::Codec::Lh5,
+            std::span<const lha::Byte>(file.data.data(), file.data.size()),
+            options
+        );
+        if (!result) {
+            std::cerr << "Failed to compress " << file.path << ": "
+                << result.message << '\n';
+            return false;
+        }
 
-        return true;
+        if (result.data.size() >= file.data.size()) {
+            file.compressed.clear();
+            file.compression = Compression::None;
+        } else {
+            file.compressed = std::move(result.data);
+            file.compression = Compression::LHA;
+        }
     }
 
-    if (file.data.size() >
-        static_cast<size_t>(std::numeric_limits<int>::max())) {
-        file.compression = Compression::None;
+    if (Tenshi::detail::pakEncryptionEnabled()) {
+        const std::vector<uint8_t>& input
+            = file.compression == Compression::LHA ? file.compressed : file.data;
+        if (!Tenshi::detail::pakEncrypt(
+            std::span<const uint8_t>(input.data(), input.size()),
+            file.encrypted,
+            file.nonce,
+            file.tag
+        )) {
+            std::cerr << "Failed to encrypt " << file.path << '\n';
+            return false;
+        }
 
-        return true;
+        file.compression = static_cast<Compression>(
+            static_cast<uint32_t>(file.compression)
+            | static_cast<uint32_t>(Compression::Encrypted)
+        );
     }
-
-    int sourceSize = static_cast<int>(file.data.size());
-    int maximumSize = LZ4_compressBound(sourceSize);
-
-    file.compressed.resize(static_cast<size_t>(maximumSize));
-
-    int compressedSize = LZ4_compress_default(
-        reinterpret_cast<const char*>(file.data.data()),
-        reinterpret_cast<char*>(file.compressed.data()),
-        sourceSize,
-        maximumSize
-    );
-
-    if (compressedSize <= 0) {
-        file.compressed.clear();
-        file.compression = Compression::None;
-
-        return true;
-    }
-
-    if (compressedSize >= sourceSize) {
-        file.compressed.clear();
-        file.compression = Compression::None;
-
-        return true;
-    }
-
-    file.compressed.resize(static_cast<size_t>(compressedSize));
-    file.compression = Compression::LZ4;
 
     return true;
 }
 
 uint64_t storedSize(const FileData& file) {
-    return file.compression == Compression::LZ4
+    if ((static_cast<uint32_t>(file.compression)
+        & static_cast<uint32_t>(Compression::Encrypted)) != 0) {
+        return static_cast<uint64_t>(
+            sizeof(file.nonce) + sizeof(file.tag) + file.encrypted.size()
+        );
+    }
+
+    return file.compression == Compression::LHA
         ? static_cast<uint64_t>(file.compressed.size())
         : static_cast<uint64_t>(file.data.size());
 }
@@ -227,14 +242,31 @@ bool writeChunk(const fs::path& outputFile, std::vector<FileData*>& entries) {
 
     PakHeader header{};
     header.magic = PAK_MAGIC;
-    header.version = PAK_VERSION;
+    header.version = Tenshi::detail::pakEncryptionEnabled()
+        ? PAK_ENCRYPTED_VERSION : PAK_VERSION;
     header.fileCount = entries.size();
     output.write(reinterpret_cast<const char*>(&header), sizeof(header));
 
     for (FileData* entry : entries) {
         entry->offset = static_cast<uint64_t>(output.tellp());
-        const std::vector<uint8_t>& data = entry->compression == Compression::LZ4
-            ? entry->compressed : entry->data;
+        const bool encrypted = (static_cast<uint32_t>(entry->compression)
+            & static_cast<uint32_t>(Compression::Encrypted)) != 0;
+        const uint32_t compression = static_cast<uint32_t>(entry->compression)
+            & ~static_cast<uint32_t>(Compression::Encrypted);
+        const std::vector<uint8_t>& data = encrypted
+            ? entry->encrypted
+            : compression == static_cast<uint32_t>(Compression::LHA)
+                ? entry->compressed : entry->data;
+        if (encrypted) {
+            output.write(
+                reinterpret_cast<const char*>(entry->nonce.data()),
+                static_cast<std::streamsize>(entry->nonce.size())
+            );
+            output.write(
+                reinterpret_cast<const char*>(entry->tag.data()),
+                static_cast<std::streamsize>(entry->tag.size())
+            );
+        }
         if (!data.empty()) {
             output.write(reinterpret_cast<const char*>(data.data()),
                 static_cast<std::streamsize>(data.size())

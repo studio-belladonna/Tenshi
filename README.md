@@ -10,8 +10,9 @@ Note: It's currently missing some features and is in early development!
 ### License:
 
 - Tenshi: MIT, see [LICENSE.md](./LICENSE.md)
+- liblha: MIT
 - stb: MIT, Public Domain
 - SDL: Zlib
 - Miniaudio: MIT-0 (No Attribution), Public Domain
 - fkYAML: MIT
-- lz4: BSD 2-Clause
+- libsodium: ISC

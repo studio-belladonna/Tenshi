@@ -25,7 +25,8 @@ public:
 private:
     enum class Compression : uint32_t {
         None = 0,
-        LZ4 = 1
+        LHA = 1,
+        Encrypted = 0x100
     };
 
     struct Entry {
@@ -33,7 +34,7 @@ private:
         uint64_t compressedSize;
         uint64_t uncompressedSize;
 
-        Compression compression;
+        uint32_t compression;
 
         uint32_t checksum;
     };

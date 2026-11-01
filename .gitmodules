@@ -1,3 +1,6 @@
-[submodule "external/lz4"]
-	path = external/lz4
-	url = https://github.com/lz4/lz4.git
+[submodule "external/liblha"]
+	path = external/liblha
+	url = https://github.com/studio-belladonna/liblha
+[submodule "external/libsodium-cmake"]
+	path = external/libsodium-cmake
+	url = https://github.com/robinlinden/libsodium-cmake.git

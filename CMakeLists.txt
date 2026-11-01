@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 project(tenshi_engine)
 
 set(EXTERNAL_DIR "external")
@@ -40,22 +40,30 @@ set(TENSHI_PAK_MAX_SIZE
     "Maximum TPK chunk size in bytes"
 )
 
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/PakCrypto.cmake")
+tenshi_configure_pak_crypto()
+
 # --------------------------------------------------------
 # Packer-only build
 # Used by the Emscripten build to create a native packer
 # --------------------------------------------------------
 if(TENSHI_BUILD_PACKER_ONLY)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(liblha_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     add_subdirectory(
-        "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/lz4/build/cmake"
-        lz4
+        "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/liblha"
+        liblha
     )
     add_executable(packer_tool
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/pak/main.cpp"
     )
     target_link_libraries(packer_tool 
         PRIVATE 
-            lz4
+            liblha::liblha
+            tenshi_pak_crypto
+    )
+    target_include_directories(packer_tool
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
     )
 
     return()
@@ -77,9 +85,10 @@ target_include_directories(miniaudio
 )
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(liblha_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(
-    "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/lz4/build/cmake"
-    lz4
+    "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/liblha"
+    liblha
 )
 
 add_library(fkyaml INTERFACE)
@@ -197,10 +206,12 @@ target_sources(tenshi
 target_link_libraries(tenshi
     PUBLIC
         miniaudio
-        lz4
+        liblha::liblha
         fkyaml
         stb_image
         stb_truetype
+    PRIVATE
+        tenshi_pak_crypto
 )
 
 add_library(tenshi_sdl3 STATIC
@@ -242,6 +253,19 @@ if(BUILD_TESTING)
     )
     target_link_libraries(tenshi_ecs_tests PRIVATE tenshi::tenshi)
     add_test(NAME tenshi_ecs_tests COMMAND tenshi_ecs_tests)
+
+    if(TENSHI_PAK_ENCRYPTION AND NOT EMSCRIPTEN)
+        add_executable(tenshi_pak_crypto_tests
+            tests/pak_crypto_tests.cpp
+        )
+        target_link_libraries(tenshi_pak_crypto_tests
+            PRIVATE tenshi_pak_crypto
+        )
+        target_include_directories(tenshi_pak_crypto_tests
+            PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        )
+        add_test(NAME tenshi_pak_crypto_tests COMMAND tenshi_pak_crypto_tests)
+    endif()
 endif()
 
 # ============================================================
@@ -263,7 +287,11 @@ if(TENSHI_PACKED)
 
         target_link_libraries(packer_tool
             PRIVATE
-                lz4
+                liblha::liblha
+                tenshi_pak_crypto
+        )
+        target_include_directories(packer_tool
+            PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
         )
 
         add_custom_command(
@@ -322,6 +350,8 @@ if(TENSHI_PACKED)
                 "-DCMAKE_BUILD_TYPE=Release"
                 "-DTENSHI_PACKED=ON"
                 "-DTENSHI_BUILD_PACKER_ONLY=ON"
+                "-DTENSHI_PAK_ENCRYPTION=${TENSHI_PAK_ENCRYPTION}"
+                "-DTENSHI_PAK_KEY_SOURCE_DIR=${TENSHI_PAK_KEY_SOURCE_DIR}"
             BUILD_COMMAND
                 "${CMAKE_COMMAND}"
                 --build .
@@ -363,6 +393,21 @@ if(TENSHI_PACKED)
     add_custom_target(pack_resources
         DEPENDS
             "${TENSHI_PAK_FILE}"
+    )
+endif()
+
+if(BUILD_TESTING AND TENSHI_PACKED AND NOT EMSCRIPTEN)
+    add_executable(tenshi_pak_archive_tests
+        tests/pak_archive_tests.cpp
+    )
+    target_include_directories(tenshi_pak_archive_tests
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    )
+    target_link_libraries(tenshi_pak_archive_tests PRIVATE tenshi::tenshi)
+    add_dependencies(tenshi_pak_archive_tests pack_resources)
+    add_test(
+        NAME tenshi_pak_archive_tests
+        COMMAND tenshi_pak_archive_tests "${TENSHI_PAK_FILE}"
     )
 endif()
 

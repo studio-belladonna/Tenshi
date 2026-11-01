@@ -1,6 +1,7 @@
 #include "Files/PakArchive.h"
 
 #include "Files/PakFile.h"
+#include "Files/PakCrypto.h"
 
 #include <algorithm>
 #include <array>
@@ -9,13 +10,17 @@
 #include <fstream>
 #include <limits>
 #include <iostream>
+#include <span>
 
-#include <lz4.h>
+#include <liblha/lha.h>
 
 namespace { // file constuction
 
 constexpr uint32_t PAK_MAGIC = 0x4B415054;
-constexpr uint32_t PAK_VERSION = 1;
+constexpr uint32_t PAK_VERSION = 2;
+constexpr uint32_t PAK_ENCRYPTED_VERSION = 3;
+constexpr uint32_t PAK_COMPRESSION_MASK = 0xFF;
+constexpr uint32_t PAK_ENCRYPTED_FLAG = 0x100;
 
 #pragma pack(push, 1)
 
@@ -117,7 +122,8 @@ bool PakArchive::load(const std::string& path) {
         return false;
     }
 
-    if (header.version != PAK_VERSION) {
+    if (header.version != PAK_VERSION
+    &&  header.version != PAK_ENCRYPTED_VERSION) {
         return false;
     }
 
@@ -142,6 +148,8 @@ bool PakArchive::load(const std::string& path) {
 
         if (entryHeader.pathLength == 0 
         ||  entryHeader.pathLength > 1024
+        ||  (header.version == PAK_VERSION
+            && (entryHeader.compression & PAK_ENCRYPTED_FLAG) != 0)
         ) {
             entries.clear();
             return false;
@@ -172,7 +180,7 @@ bool PakArchive::load(const std::string& path) {
         entry.compressedSize = entryHeader.compressedSize;
         entry.uncompressedSize = entryHeader.uncompressedSize;
 
-        entry.compression = static_cast<Compression>(entryHeader.compression);
+        entry.compression = entryHeader.compression;
 
         entry.checksum = entryHeader.checksum;
 
@@ -234,8 +242,10 @@ bool PakArchive::readEntryData(const Entry& entry, std::vector<uint8_t>& output)
 
     if (!file) return false;
     
-    if (entry.compressedSize 
+    if (entry.compressedSize
     >   static_cast<uint64_t>(std::numeric_limits<size_t>::max())
+    ||  entry.compressedSize
+    >   static_cast<uint64_t>(std::numeric_limits<std::streamsize>::max())
     ) {
         return false;
     }
@@ -251,39 +261,57 @@ bool PakArchive::readEntryData(const Entry& entry, std::vector<uint8_t>& output)
         if (!file) return false;
     }
 
-    if (entry.compression == Compression::None) {
-        output = std::move(compressed);
-    } else if (entry.compression == Compression::LZ4) {
-        if (entry.uncompressedSize 
-        >   static_cast<uint64_t>(std::numeric_limits<int>::max())
-        ) {
+    std::vector<uint8_t> compressedData;
+    if ((entry.compression & ~(PAK_COMPRESSION_MASK | PAK_ENCRYPTED_FLAG)) != 0) {
+        return false;
+    }
+
+    const bool encrypted = (entry.compression & PAK_ENCRYPTED_FLAG) != 0;
+    if (encrypted) {
+        constexpr size_t encryptionOverhead
+            = sizeof(detail::PakNonce) + sizeof(detail::PakTag);
+        if (!detail::pakEncryptionEnabled()
+        ||  compressed.size() < encryptionOverhead) {
             return false;
         }
 
-        if (entry.compressedSize 
-        >   static_cast<uint64_t>(std::numeric_limits<int>::max())
-        ) {
-            return false;
-        }
-
-        output.resize(
-            static_cast<size_t>(entry.uncompressedSize)
+        detail::PakNonce nonce{};
+        detail::PakTag tag{};
+        std::copy_n(compressed.begin(), nonce.size(), nonce.begin());
+        std::copy_n(compressed.begin() + nonce.size(), tag.size(), tag.begin());
+        const auto ciphertext = std::span<const uint8_t>(
+            compressed.data() + encryptionOverhead,
+            compressed.size() - encryptionOverhead
         );
+        if (!detail::pakDecrypt(ciphertext, nonce, tag, compressedData)) {
+            return false;
+        }
+    } else {
+        compressedData = std::move(compressed);
+    }
 
-        int result = LZ4_decompress_safe(
-            reinterpret_cast<const char*>(compressed.data()),
-            reinterpret_cast<char*>(output.data()),
-            static_cast<int>(compressed.size()),
-            static_cast<int>(output.size())
-        );
-
-        if (result < 0) return false;
-
-        if (static_cast<size_t>(result) 
-        !=  output.size()
+    const uint32_t compression = entry.compression & PAK_COMPRESSION_MASK;
+    if (compression == static_cast<uint32_t>(Compression::None)) {
+        output = std::move(compressedData);
+    } else if (compression == static_cast<uint32_t>(Compression::LHA)) {
+        if (entry.uncompressedSize
+        >   static_cast<uint64_t>(std::numeric_limits<size_t>::max())
         ) {
             return false;
         }
+
+        lha::Options options;
+        options.maxOutputSize = entry.uncompressedSize;
+        lha::Result result = lha::decompress(
+            lha::Codec::Lh5,
+            std::span<const lha::Byte>(compressedData.data(), compressedData.size()),
+            entry.uncompressedSize,
+            options
+        );
+        if (!result) {
+            return false;
+        }
+        output = std::move(result.data);
     } else {
         return false;
     }
