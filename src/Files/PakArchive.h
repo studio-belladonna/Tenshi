@@ -44,7 +44,6 @@ private:
 
     std::string normalizePath(const std::string& path) const;
 
-    bool readHeader(std::ifstream& file);
     bool readEntryData(const Entry& entry, std::vector<uint8_t>& output) const;
 };
 
