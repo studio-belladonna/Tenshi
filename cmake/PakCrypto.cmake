@@ -100,6 +100,10 @@ function(tenshi_configure_pak_crypto)
             "${_TENSHI_PAK_CRYPTO_ROOT}/external/libsodium-cmake"
             "${CMAKE_CURRENT_BINARY_DIR}/libsodium"
         )
+        set_property(TARGET sodium PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+            "$<BUILD_INTERFACE:${_TENSHI_PAK_CRYPTO_ROOT}/external/libsodium-cmake/libsodium/src/libsodium/include>"
+            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+        )
 
         foreach(_part RANGE 0 3)
             list(APPEND _crypto_sources

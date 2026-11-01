@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(tenshi_engine)
 
 set(EXTERNAL_DIR "external")
+include(GNUInstallDirs)
 
 # ============================================================
 # Options
@@ -81,7 +82,8 @@ add_library(miniaudio STATIC
 
 target_include_directories(miniaudio
     PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/miniaudio"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/miniaudio>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -92,19 +94,24 @@ add_subdirectory(
 )
 
 add_library(fkyaml INTERFACE)
-target_include_directories(fkyaml 
-    INTERFACE 
-        "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/fkyaml/include/"
+target_include_directories(fkyaml
+    INTERFACE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/fkyaml/include>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
 add_library(stb_image INTERFACE)
-target_include_directories(stb_image INTERFACE 
-    "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/stb_image/"
+target_include_directories(stb_image
+    INTERFACE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/stb_image>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
 add_library(stb_truetype INTERFACE)
-target_include_directories(stb_truetype INTERFACE 
-    "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/stb_truetype/"
+target_include_directories(stb_truetype
+    INTERFACE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/stb_truetype>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
 # ============================================================
@@ -225,7 +232,7 @@ target_link_libraries(tenshi_sdl3
     PUBLIC
         tenshi::tenshi
     PRIVATE
-        SDL3::SDL3
+        "$<BUILD_INTERFACE:SDL3::SDL3>"
 )
 target_include_directories(tenshi_sdl3
     PRIVATE
@@ -234,8 +241,9 @@ target_include_directories(tenshi_sdl3
 
 target_include_directories(tenshi
     PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/include"
-        "${CMAKE_CURRENT_BINARY_DIR}/include"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
@@ -484,35 +492,93 @@ endfunction()
 if(TENSHI_INSTALL)
     include(CMakePackageConfigHelpers)
 
+    set(TENSHI_INSTALL_TARGETS
+        tenshi
+        tenshi_sdl3
+        miniaudio
+        liblha
+        fkyaml
+        stb_image
+        stb_truetype
+        tenshi_pak_crypto
+    )
+    if(TARGET sodium)
+        list(APPEND TENSHI_INSTALL_TARGETS sodium)
+    endif()
+
     install(
-        TARGETS tenshi tenshi_sdl3
+        TARGETS ${TENSHI_INSTALL_TARGETS}
         EXPORT tenshiTargets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Development
     )
 
     install(
         DIRECTORY
             "${CMAKE_CURRENT_SOURCE_DIR}/include/"
         DESTINATION
-            include
+            "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT Development
     )
+
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/miniaudio/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT Development
+        FILES_MATCHING PATTERN "miniaudio.h"
+    )
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/liblha/include/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT Development
+    )
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/fkyaml/include/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT Development
+    )
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/stb_image/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT Development
+        FILES_MATCHING PATTERN "*.h"
+    )
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/stb_truetype/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT Development
+        FILES_MATCHING PATTERN "*.h"
+    )
+    if(TARGET sodium)
+        install(
+            DIRECTORY
+                "${CMAKE_CURRENT_SOURCE_DIR}/${EXTERNAL_DIR}/libsodium-cmake/libsodium/src/libsodium/include/"
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+            COMPONENT Development
+            FILES_MATCHING PATTERN "*.h"
+        )
+    endif()
 
     install(
         EXPORT tenshiTargets
         FILE tenshiTargets.cmake
         NAMESPACE tenshi::
-        DESTINATION lib/cmake/tenshi
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/tenshi"
+        COMPONENT Development
     )
 
     configure_package_config_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tenshiConfig.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/tenshiConfig.cmake"
-        INSTALL_DESTINATION lib/cmake/tenshi
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/tenshi"
     )
 
     install(
         FILES
             "${CMAKE_CURRENT_BINARY_DIR}/tenshiConfig.cmake"
-        DESTINATION
-            lib/cmake/tenshi
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/tenshi"
+        COMPONENT Development
     )
 endif()
